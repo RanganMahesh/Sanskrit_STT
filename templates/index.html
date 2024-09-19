@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanskrit Recitation Evaluation System</title>
+</head>
+<body>
+    <h1>Sanskrit Recitation Evaluation System</h1>
+    <form action="/process/" method="post">
+        <label for="audio_path">Audio File Path:</label>
+        <input type="text" name="audio_path" id="audio_path" placeholder="Enter audio file path" required><br><br>
+
+        <label for="transcription_path">Transcription File Path:</label>
+        <input type="text" name="transcription_path" id="transcription_path" placeholder="Enter transcription file path" required><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+
+    {% if transcription %}
+    <h2>Transcription Result</h2>
+    <p><strong>Transcribed Text:</strong> {{ transcription }}</p>
+    <p><strong>Correct Text:</strong> {{ ground_truth_transcription }}</p>
+
+    <h2>Similarity Result</h2>
+    <p><strong>Similarity Score(Levenshtein-based):</strong> {{ similarity_result.similarity_score }}</p>
+    {% endif %}
+</body>
+</html>
