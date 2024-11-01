@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanskrit Recitation Evaluation System</title>
+    <style>
+        .difference {
+            background-color: red;
+            color: white;
+        }
+        .wrap-pre {
+            width: 1000px;
+            border: 1px solid black;
+            padding: 10px;
+            font-size: 25px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sanskrit Recitation Evaluation System</h1>
+    <form id="audioForm" action="/process/" method="post" enctype="multipart/form-data">
+        <label for="audio_source">Choose Audio Source:</label><br>
+        <input type="radio" id="upload" name="audio_source" value="upload" checked>
+        <label for="upload">Upload Audio File</label><br>
+        <input type="radio" id="record" name="audio_source" value="record">
+        <label for="record">Record Audio</label><br><br>
+
+        <div id="uploadSection">
+            <label for="audio_file">Upload Audio File:</label>
+            <input type="file" name="audio_file" id="audio_file" accept=".wav, audio/*"><br><br>
+        </div>
+
+        <div id="recordSection" style="display:none;">
+            <button type="button" id="startRecording">Start Recording</button>
+            <button type="button" id="stopRecording" disabled>Stop Recording</button>
+            <audio id="audioPlayback" controls style="display:none;"></audio>
+            <input type="hidden" name="recorded_audio" id="recorded_audio">
+        </div>
+
+        <!-- Separate fields for Canto and Chapter -->
+        <label for="canto">Enter Canto Number:</label>
+        <input type="number" name="canto" id="canto" placeholder="Canto" required><br><br>
+
+        <label for="chapter">Enter Chapter Number:</label>
+        <input type="number" name="chapter" id="chapter" placeholder="Chapter" required><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+
+    <h2>Result with highlighted Mistakes</h2>
+    {{ result | safe }}
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+
+        // Toggle between upload and recording sections
+        document.querySelectorAll('input[name="audio_source"]').forEach((radio) => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'upload') {
+                    document.getElementById('uploadSection').style.display = 'block';
+                    document.getElementById('recordSection').style.display = 'none';
+                } else {
+                    document.getElementById('uploadSection').style.display = 'none';
+                    document.getElementById('recordSection').style.display = 'block';
+                }
+            });
+        });
+
+        document.getElementById('startRecording').onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' }); // Use 'audio/webm' as a common format
+
+                mediaRecorder.start();
+                console.log('Recording started');
+
+                // Disable Start button and enable Stop button
+                document.getElementById('startRecording').disabled = true;
+                document.getElementById('stopRecording').disabled = false;
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    document.getElementById('audioPlayback').src = audioUrl;
+                    document.getElementById('audioPlayback').style.display = 'block';
+                    const reader = new FileReader();
+
+                    reader.onloadend = () => {
+                        document.getElementById('recorded_audio').value = reader.result; // Base64 string
+                    };
+
+                    reader.readAsDataURL(audioBlob); // Read as base64
+                    audioChunks = []; // Clear the array for the next recording
+                };
+
+                mediaRecorder.onerror = event => {
+                    console.error('Error occurred while recording: ', event.error);
+                };
+            } catch (error) {
+                console.error('Error accessing microphone: ', error);
+            }
+        };
+
+        document.getElementById('stopRecording').onclick = () => {
+            mediaRecorder.stop();
+            console.log('Recording stopped');
+
+            // Enable Start button and disable Stop button
+            document.getElementById('startRecording').disabled = false;
+            document.getElementById('stopRecording').disabled = true;
+        };
+    </script>
+</body>
+</html>
+</title>
+</head>
+<body>
+
+</body>
+</html>

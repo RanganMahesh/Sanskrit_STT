@@ -3,27 +3,253 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sanskrit Recitation Evaluation System</title>
+    <title>Audio Transcription and Comparison</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 60%; /* Default width for form page */
+            max-width: 600px;
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input, .input-group button {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            cursor: pointer;
+        }
+        #processingMessage {
+            display: none; /* Initially hidden */
+            font-weight: bold;
+            color: #007bff;
+            text-align: center;
+            margin-top: 10px;
+        }
+        /* Result section styling */
+        #resultSection {
+            width: 80%; /* Ensure this takes up 80% of the viewport width */
+            max-width: 1200px; /* Optional: set a max width for larger screens */
+            margin: 20px auto; /* Center the result section */
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: none; /* Initially hidden */
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            white-space: normal;          /* Allow normal white space handling */
+            overflow-wrap: break-word;   /* Allow long words to break and wrap */
+            word-break: break-word;       /* Break long words when necessary */
+            max-width: 100%;              /* Prevents overflow */
+            padding: 10px;                /* Adds some padding around the result */
+            border: 1px solid #ddd;       /* Optional: Add border for visual separation */
+            border-radius: 5px;           /* Optional: Rounded corners */
+        }
+
+        .difference {
+            background-color: yellow;
+            color: red;
+            font-weight: bold;
+        }
+        /* Centered button styling for the result page */
+        .button-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        /* Audio player styling */
+        #audioPlayer {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Sanskrit Recitation Evaluation System</h1>
-    <form action="/process/" method="post">
-        <label for="audio_path">Audio File Path:</label>
-        <input type="text" name="audio_path" id="audio_path" placeholder="Enter audio file path" required><br><br>
 
-        <label for="transcription_path">Transcription File Path:</label>
-        <input type="text" name="transcription_path" id="transcription_path" placeholder="Enter transcription file path" required><br><br>
+<div class="container" id="mainContainer">
+    <h1>Audio Transcription and Comparison</h1>
 
-        <input type="submit" value="Submit">
+    <!-- Input Form -->
+    <form id="transcriptionForm">
+        <div class="input-group">
+            <label for="audio_file">Upload Audio File (.wav, .m4a):</label>
+            <input type="file" id="audio_file" name="audio_file" accept=".wav, .m4a">
+        </div>
+
+        <div class="input-group">
+            <label for="record_audio">Or Record Audio:</label>
+            <button type="button" id="recordBtn">Start Recording</button>
+            <button type="button" id="stopBtn" disabled>Stop Recording</button>
+            <input type="hidden" id="recorded_audio" name="recorded_audio">
+        </div>
+
+        <div class="input-group">
+            <label for="canto">Canto:</label>
+            <input type="number" id="canto" name="canto" required>
+        </div>
+
+        <div class="input-group">
+            <label for="chapter">Chapter:</label>
+            <input type="number" id="chapter" name="chapter" required>
+        </div>
+
+        <div class="input-group">
+            <button type="submit">Submit</button>
+        </div>
     </form>
 
-    {% if transcription %}
-    <h2>Transcription Result</h2>
-    <p><strong>Transcribed Text:</strong> {{ transcription }}</p>
-    <p><strong>Correct Text:</strong> {{ ground_truth_transcription }}</p>
+    <!-- Processing Message -->
+    <div id="processingMessage">Processing...</div>
+</div>
 
-    <h2>Similarity Result</h2>
-    <p><strong>Similarity Score(Levenshtein-based):</strong> {{ similarity_result.similarity_score }}</p>
-    {% endif %}
+<!-- Result Display Section -->
+<div id="resultSection">
+    <!-- Audio Player -->
+    <audio id="audioPlayer" controls></audio>
+
+    <!-- Highlighted Result -->
+    <div id="result"></div>
+
+    <!-- Play and Evaluate Another Buttons -->
+    <div class="button-group">
+        <button id="evaluateAnotherBtn">Evaluate Another</button>
+    </div>
+</div>
+
+<script>
+    const form = document.getElementById("transcriptionForm");
+    const resultDiv = document.getElementById("result");
+    const resultSection = document.getElementById("resultSection");
+    const processingMessage = document.getElementById("processingMessage");
+    const evaluateAnotherBtn = document.getElementById("evaluateAnotherBtn");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const recordBtn = document.getElementById("recordBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const recordedAudioInput = document.getElementById("recorded_audio");
+    let mediaRecorder;
+    let audioChunks = [];
+
+    // Handle form submission
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Show "Processing..." message and hide the form fields
+        processingMessage.style.display = "block"; // Show the processing message
+        form.style.display = "none"; // Hide the form
+
+        const formData = new FormData(form);
+
+        // Make AJAX request to process the audio and get the transcription
+        const response = await fetch("/process/", {
+            method: "POST",
+            body: formData,
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        });
+
+        const data = await response.json();
+
+        if (data.result_html) {
+            processingMessage.style.display = "none"; // Hide the processing message
+            resultDiv.innerHTML = data.result_html;    // Render the highlighted HTML result
+            resultSection.style.display = "block";      // Show the result section with audio controls
+
+            // Set audio source based on uploaded or recorded audio
+            const audioFile = formData.get("audio_file");
+            const recordedAudio = recordedAudioInput.value;
+
+            if (audioFile) {
+                // If an audio file was uploaded, use that as the source
+                const audioUrl = URL.createObjectURL(audioFile);
+                audioPlayer.src = audioUrl;
+                audioPlayer.load();
+            } else if (recordedAudio) {
+                // If recorded audio is available, use it as the source
+                audioPlayer.src = recordedAudio;
+                audioPlayer.load();
+            }
+        } else {
+            processingMessage.style.display = "none"; // Hide the processing message
+            resultDiv.innerHTML = `<p>${data.error || "An error occurred."}</p>`;
+            resultSection.style.display = "block"; // Show the result section even on error
+        }
+    });
+
+    // "Evaluate Another" button functionality
+    evaluateAnotherBtn.addEventListener("click", () => {
+        // Reset the form and UI
+        form.reset();
+        form.style.display = "block"; // Show the form again
+        resultSection.style.display = "none"; // Hide the result section
+        resultDiv.innerHTML = ""; // Clear previous results
+        processingMessage.style.display = "none"; // Ensure processing message is hidden
+    });
+
+    // Start recording audio
+    recordBtn.addEventListener("click", async () => {
+        if (!navigator.mediaDevices) {
+            alert("Your browser does not support audio recording.");
+            return;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                recordedAudioInput.value = reader.result;  // Set base64 encoded audio data for playback
+            };
+            reader.readAsDataURL(audioBlob);
+            audioChunks = [];
+        };
+
+        mediaRecorder.start();
+        recordBtn.disabled = true;
+        stopBtn.disabled = false;
+    });
+
+    // Stop recording audio
+    stopBtn.addEventListener("click", () => {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+            recordBtn.disabled = false;
+            stopBtn.disabled = true;
+        }
+    });
+</script>
+
 </body>
 </html>

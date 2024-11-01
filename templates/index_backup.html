@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanskrit Recitation Evaluation System</title>
+    <style>
+        .difference {
+            background-color: red;
+            color: white;
+        }
+        .wrap-pre {
+            width: 1000px;
+            border: 1px solid black;
+            padding: 10px;
+            font-size: 25px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sanskrit Recitation Evaluation System</h1>
+    <form action="/process/" method="post" enctype="multipart/form-data">
+        <label for="audio_file">Upload Audio File:</label>
+        <input type="file" name="audio_file" id="audio_file" accept="audio/*" required><br><br>
+
+        <!-- Separate fields for Canto and Chapter -->
+        <label for="canto">Enter Canto Number:</label>
+        <input type="number" name="canto" id="canto" placeholder="Canto" required><br><br>
+
+        <label for="chapter">Enter Chapter Number:</label>
+        <input type="number" name="chapter" id="chapter" placeholder="Chapter" required><br><br>
+
+        <input type="submit" value="Submit">
+    </form>
+
+    <h2>Result with highlighted Mistakes</h2>
+    {{ result | safe }}
+</body>
+</html>
